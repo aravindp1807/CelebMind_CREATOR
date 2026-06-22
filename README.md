@@ -1,4 +1,4 @@
-# 🧠 Synthetic Brain
+# 🧠 Celeb MIND
 
 Scrape, chunk, embed, cluster, synthesize, and export celebrity knowledge as an
 Obsidian vault — one markdown note per entity, `[[wikilinked]]` to related
