@@ -1,0 +1,16 @@
+.env
+.env.local
+.env.*
+__pycache__/
+*.pyc
+output/
+.venv/
+venv/
+.agents/
+.idea/
+.vscode/
+*.log
+docker_error.log
+docker_out.log
+backend_error.log
+backend_out.log

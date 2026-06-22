@@ -1,0 +1,578 @@
+{% extends "base.html" %}
+
+{% block title %}MNEME — {{ subject.name }}{% endblock %}
+
+{% block content %}
+
+<!-- Metadata Helper for JS -->
+<div id="subject-data"
+     data-id="{{ subject.id }}"
+     data-running="{{ 'true' if is_running else 'false' }}"
+     {% if is_running %}data-polling="true"{% endif %}
+     style="display:none;"></div>
+
+<!-- ═══════════ SUBJECT HEADER ═══════════ -->
+<section class="glow-card reveal" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+            <a href="{{ url_for('web.index') }}" style="color: var(--dim); text-decoration: none; font-size: 20px; transition: color 0.2s;" title="Back to dashboard">
+                <iconify-icon icon="mdi:arrow-left" width="20"></iconify-icon>
+            </a>
+            <h1 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 32px; color: var(--bone);">{{ subject.name }}</h1>
+            <span class="status-badge {% if is_running %}running{% elif stages|selectattr('status', 'equalto', 'failed')|list %}failed{% else %}complete{% endif %}">
+                <span class="badge-dot"></span>
+                {% if is_running %}
+                    Processing
+                {% elif stages|selectattr('status', 'equalto', 'failed')|list %}
+                    Failed
+                {% else %}
+                    Complete
+                {% endif %}
+            </span>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">
+            Type: <span class="entity-badge person" style="margin: 0 4px;">{{ subject.subject_type }}</span>
+            &middot;
+            Created: {{ subject.created_at.strftime('%Y-%m-%d %H:%M') if subject.created_at else 'Unknown' }}
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <form action="{{ url_for('web.reset_subject', id=subject.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to stop the pipeline and delete all data for this subject?');">
+            <button type="submit" class="btn-secondary" style="background: rgba(239, 83, 80, 0.1); border-color: rgba(239, 83, 80, 0.4); color: var(--alert); display: inline-flex; align-items: center; gap: 4px;">
+                <iconify-icon icon="mdi:stop-circle-outline" width="14"></iconify-icon>
+                Reset / Stop
+            </button>
+        </form>
+        <form action="{{ url_for('web.create_subject') }}" method="POST" style="margin: 0;">
+            <input type="hidden" name="name" value="{{ subject.name }}">
+            <button type="submit" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 4px;">
+                <iconify-icon icon="mdi:refresh" width="14"></iconify-icon>
+                Re-run
+            </button>
+        </form>
+        <button onclick="exportVault({{ subject.id }})" class="btn-primary" id="export-btn" style="display: inline-flex; align-items: center; gap: 4px;">
+            <iconify-icon icon="mdi:export-variant" width="14"></iconify-icon>
+            Export Vault
+        </button>
+    </div>
+</section>
+
+<!-- ═══════════ PIPELINE PROGRESS ═══════════ -->
+<section class="glow-card reveal" style="margin-bottom: 24px; padding: 28px 20px;">
+    <div class="section-eyebrow" style="text-align: center; margin-bottom: 20px;">
+        <iconify-icon icon="mdi:pipe" width="12" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+        Pipeline Progress
+    </div>
+    <div class="pipeline-stepper">
+        {% set stage_icons = {
+            'scrape': 'mdi:spider-web',
+            'chunk': 'mdi:puzzle-outline',
+            'embed': 'mdi:vector-point',
+            'ner': 'mdi:tag-text-outline',
+            'cluster': 'mdi:group',
+            'synthesize': 'mdi:brain',
+            'vault': 'mdi:safe-square-outline'
+        } %}
+        {% for st in stages %}
+            <div class="step-node {{ st.status }}" 
+                 data-stage="{{ st.stage }}"
+                 {% if st.started_at %}data-started="{{ st.started_at.isoformat() }}"{% endif %}
+                 {% if st.completed_at %}data-completed="{{ st.completed_at.isoformat() }}"{% endif %}>
+                <div class="step-dot">
+                    {% if st.status == 'complete' %}
+                        <iconify-icon icon="mdi:check" width="14"></iconify-icon>
+                    {% elif st.status == 'failed' %}
+                        <iconify-icon icon="mdi:close" width="14"></iconify-icon>
+                    {% elif st.status == 'running' %}
+                        <iconify-icon icon="mdi:loading" width="14" style="animation: spin 1s linear infinite;"></iconify-icon>
+                    {% else %}
+                        {{ loop.index }}
+                    {% endif %}
+                </div>
+                <div class="step-label">{{ st.stage }}</div>
+                <div class="step-timer" style="font-family: 'JetBrains Mono', monospace; font-size: 9px; margin-top: 4px; min-height: 12px; color: var(--dim); white-space: nowrap;"></div>
+                {% if st.status == 'failed' and st.error_message %}
+                    <div style="font-size: 9px; color: var(--alert); margin-top: 4px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ st.error_message }}">Error</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <div id="active-step-info" style="text-align: center; margin-top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--signal); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <iconify-icon icon="mdi:clock-outline" width="14" style="color: var(--raw);"></iconify-icon>
+            Active Stage: <span id="active-step-name" style="font-weight: 600; text-transform: uppercase; color: var(--bone);"></span>
+            &middot;
+            Elapsed Time: <span id="active-step-duration" style="font-weight: 600; color: var(--raw);">0s</span>
+        </div>
+        <form action="{{ url_for('web.reset_subject', id=subject.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to stop the pipeline and delete all data for this subject?');">
+            <button type="submit" class="btn-secondary" style="background: rgba(239, 83, 80, 0.1); border-color: rgba(239, 83, 80, 0.4); color: var(--alert); display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 12px; font-family: 'Rajdhani', sans-serif; font-weight: 600; text-transform: uppercase; border-radius: 4px; transition: all 0.2s;">
+                <iconify-icon icon="mdi:stop-circle-outline" width="16"></iconify-icon>
+                Stop / Reset Subject
+            </button>
+        </form>
+    </div>
+</section>
+
+<!-- ═══════════ SUBJECT METRICS ═══════════ -->
+<section class="reveal" style="margin-bottom: 24px;">
+    <div class="bento-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="bento-cell">
+            <div class="bento-value" id="stat-docs">{{ stats.documents }}</div>
+            <div class="bento-label">Documents</div>
+        </div>
+        <div class="bento-cell">
+            <div class="bento-value" id="stat-chunks">{{ stats.chunks }}</div>
+            <div class="bento-label">Chunks</div>
+        </div>
+        <div class="bento-cell">
+            <div class="bento-value" id="stat-entities">{{ stats.entities }}</div>
+            <div class="bento-label">Entities</div>
+        </div>
+        <div class="bento-cell">
+            <div class="bento-value" id="stat-notes">{{ stats.notes }}</div>
+            <div class="bento-label">Notes</div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ TABBED CONTENT ═══════════ -->
+<nav class="tab-nav reveal">
+    <button class="tab-btn active" data-tab="tab-sources">
+        <iconify-icon icon="mdi:link-variant" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+        Sources ({{ stats.documents }})
+    </button>
+    <button class="tab-btn" data-tab="tab-entities">
+        <iconify-icon icon="mdi:tag-multiple" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+        Entities ({{ stats.entities }})
+    </button>
+    <button class="tab-btn" data-tab="tab-graph">
+        <iconify-icon icon="mdi:graph-outline" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+        Knowledge Graph
+    </button>
+    <button class="tab-btn" data-tab="tab-notes">
+        <iconify-icon icon="mdi:notebook-outline" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+        Vault ({{ stats.notes }})
+    </button>
+</nav>
+
+<!-- ─── TAB 1: Sources & Raw Data ─── -->
+<div class="tab-content active" id="tab-sources">
+    <div class="glow-card">
+        <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 16px;">
+            <iconify-icon icon="mdi:database-search-outline" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+            Raw Sources
+        </h3>
+        {% if raw_docs %}
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>URL / Source</th>
+                        <th>Status</th>
+                        <th>Fetched At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in raw_docs %}
+                        <tr class="{{ 'state-raw' if not doc.metadata else 'state-synth' }}">
+                            <td>
+                                <span class="entity-badge organization">
+                                    {{ doc.metadata.source_type if doc.metadata and doc.metadata.source_type else 'raw' }}
+                                </span>
+                            </td>
+                            <td class="url-cell" title="{{ doc.metadata.url if doc.metadata and doc.metadata.url else 'N/A' }}">
+                                {{ doc.metadata.url if doc.metadata and doc.metadata.url else 'Direct input' }}
+                            </td>
+                            <td>
+                                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <span class="state-dot" style="background: var(--signal);"></span>
+                                    Ingested
+                                </span>
+                            </td>
+                            <td class="timestamp-cell">
+                                {{ doc.scraped_at.strftime('%Y-%m-%d %H:%M') if doc.scraped_at else '—' }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="text-align: center; padding: 40px; color: var(--dim);">
+                <iconify-icon icon="mdi:file-search-outline" width="32" style="margin-bottom: 8px;"></iconify-icon>
+                <p>No source documents yet. Complete the scrape stage.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if sources is defined and sources %}
+    <div class="glow-card" style="margin-top: 16px;">
+        <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 16px;">
+            Scrape Log
+        </h3>
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Source Type</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th>Fetched</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for src in sources %}
+                    <tr>
+                        <td><span class="entity-badge organization">{{ src.source_type }}</span></td>
+                        <td class="url-cell" title="{{ src.url }}">{{ src.url }}</td>
+                        <td>
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                {% if src.status == 'complete' or src.status == 'fetched' %}
+                                    <span class="state-dot" style="background: var(--signal);"></span>
+                                {% elif src.status == 'failed' %}
+                                    <span class="state-dot" style="background: var(--alert);"></span>
+                                {% else %}
+                                    <span class="state-dot" style="background: var(--raw); animation: pulse 1.5s ease-in-out infinite;"></span>
+                                {% endif %}
+                                {{ src.status }}
+                            </span>
+                        </td>
+                        <td class="timestamp-cell">{{ src.fetched_at.strftime('%Y-%m-%d %H:%M') if src.fetched_at else '—' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ─── TAB 2: Entities & Relationships ─── -->
+<div class="tab-content" id="tab-entities">
+    <!-- Entities Table -->
+    <div class="glow-card" style="margin-bottom: 20px;">
+        <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 16px;">
+            <iconify-icon icon="mdi:tag-text-outline" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+            Extracted Entities
+        </h3>
+        {% if entities %}
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Entity Name</th>
+                        <th>Type</th>
+                        <th>Mentions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ent in entities %}
+                        <tr>
+                            <td style="font-weight: 600; color: var(--bone);">
+                                {% if ent.name.lower() == subject.name.lower() %}
+                                    <iconify-icon icon="mdi:star" width="12" style="color: var(--signal); vertical-align: middle; margin-right: 4px;"></iconify-icon>
+                                {% endif %}
+                                {{ ent.name }}
+                            </td>
+                            <td><span class="entity-badge {{ ent.entity_type }}">{{ ent.entity_type }}</span></td>
+                            <td>
+                                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--signal);">{{ ent.mention_count }}</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="text-align: center; padding: 40px; color: var(--dim);">
+                <p>No entities extracted yet. Complete the NER stage.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Relationships Table -->
+    <div class="glow-card">
+        <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 16px;">
+            <iconify-icon icon="mdi:relation-many-to-many" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+            Relationships
+        </h3>
+        {% if relationships %}
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Entity A</th>
+                        <th></th>
+                        <th>Entity B</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rel in relationships %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ rel.entity_a }}</td>
+                            <td style="color: var(--dim); font-size: 14px;">→</td>
+                            <td style="font-weight: 600;">{{ rel.entity_b }}</td>
+                            <td><span class="entity-badge organization">{{ rel.relationship_type }}</span></td>
+                            <td style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); max-width: 200px;">{{ rel.description }}</td>
+                            <td>
+                                <span class="font-mono" style="font-size: 12px;
+                                    {% if rel.confidence > 0.7 %}color: var(--signal);{% elif rel.confidence < 0.3 %}color: var(--alert);{% else %}color: var(--dim);{% endif %}">
+                                    {{ "%.0f"|format(rel.confidence * 100) }}%
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="text-align: center; padding: 40px; color: var(--dim);">
+                <p>No relationships found yet. Complete the NER and clustering stages.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ─── TAB 3: Knowledge Graph ─── -->
+<div class="tab-content" id="tab-graph">
+    <div id="entity-graph"></div>
+</div>
+
+<!-- ─── TAB 4: Vault Explorer ─── -->
+<div class="tab-content" id="tab-notes">
+    <div class="glow-card" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim);">
+                <iconify-icon icon="mdi:notebook-outline" width="14" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+                Synthesized Notes
+            </span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ url_for('web.notes_viewer', id=subject.id) }}" class="btn-secondary" style="font-size: 11px; padding: 6px 14px; text-decoration: none;">
+                <iconify-icon icon="mdi:book-open-page-variant" width="14"></iconify-icon>
+                Open Full Reader
+            </a>
+            <button onclick="exportVault({{ subject.id }})" class="btn-secondary" id="export-btn" style="font-size: 11px; padding: 6px 14px;">
+                <iconify-icon icon="mdi:export-variant" width="14"></iconify-icon>
+                Export Vault
+            </button>
+            <a href="/subjects/{{ subject.id }}/vault-zip" class="btn-primary" style="font-size: 11px; padding: 6px 14px; text-decoration: none; background: var(--raw); border-color: var(--raw); color: var(--void); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <iconify-icon icon="mdi:download" width="14"></iconify-icon>
+                Download Vault (.ZIP)
+            </a>
+        </div>
+    </div>
+
+    {% if notes %}
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            {% for note in notes %}
+                <div class="glow-card note-card expandable-note" onclick="this.classList.toggle('expanded')">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <h3 class="note-title">{{ note.title }}</h3>
+                        {% if note.entity_name %}
+                            <span class="entity-badge {{ note.entity_type if note.entity_type else 'person' }}">{{ note.entity_name }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Preview (collapsed) -->
+                    <div class="note-preview">
+                        <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--dim); line-height: 1.6;">
+                            {{ note.content_md|striptags|truncate(180) }}
+                        </p>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ember); cursor: pointer;">
+                            Click to expand ▾
+                        </span>
+                    </div>
+
+                    <!-- Full content (expanded) -->
+                    <div class="note-full">
+                        <div class="markdown-body note-body">
+                            {{ note.content_md | safe }}
+                        </div>
+                        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,171,0,0.08); display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                            <span style="font-family: 'Rajdhani', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-right: 8px;">Sources:</span>
+                            {% for doc_id in note.source_doc_ids %}
+                                <span class="source-chip">
+                                    <iconify-icon icon="mdi:file-document-outline" width="10"></iconify-icon>
+                                    DOC#{{ doc_id }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- ═══════════ LIVE OBSIDIAN VAULT FILE EXPLORER ═══════════ -->
+    <div style="margin-top: 30px; padding-top: 24px; border-top: 1px dashed rgba(255,171,0,0.15);">
+        <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--bone); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+            <iconify-icon icon="mdi:folder-open-outline" width="18" style="color: var(--raw);"></iconify-icon>
+            Live Obsidian Vault File Browser
+        </h3>
+        
+        <div class="explorer-container" style="display: grid; grid-template-columns: 240px 1fr; gap: 20px; min-height: 400px; align-items: start;">
+            <!-- File Tree List -->
+            <div class="glow-card" style="padding: 16px; background: #08090a; overflow-y: auto; max-height: 450px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Vault Directory</span>
+                    <button onclick="loadVaultFiles()" style="background: none; border: none; color: var(--raw); cursor: pointer; display: flex; align-items: center;" title="Reload file list">
+                        <iconify-icon icon="mdi:reload" width="12"></iconify-icon>
+                    </button>
+                </div>
+                <div id="vault-file-tree" style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="color: var(--dim); font-size: 11px; font-family: 'JetBrains Mono', monospace;">Loading file tree...</div>
+                </div>
+            </div>
+            
+            <!-- File Content Viewer Panel -->
+            <div class="glow-card" style="padding: 20px; display: flex; flex-direction: column; height: 450px; justify-content: space-between;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px; margin-bottom: 14px; flex-shrink: 0;">
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--raw); display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                        <iconify-icon icon="mdi:file-document-outline" width="16" style="flex-shrink: 0;"></iconify-icon>
+                        <span id="selected-filename" style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Select a file from the explorer</span>
+                    </div>
+                    <button id="download-selected-btn" class="btn-secondary" style="font-size: 10px; padding: 4px 10px; display: none; align-items: center; gap: 4px; flex-shrink: 0;" onclick="downloadSelectedFile()">
+                        <iconify-icon icon="mdi:download" width="12"></iconify-icon>
+                        Download File
+                    </button>
+                </div>
+                
+                <pre id="file-preview-box" style="flex: 1; background: #040405; border: 1px solid rgba(255,255,255,0.03); border-radius: 4px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--bone); overflow-y: auto; white-space: pre-wrap; margin: 0;">Select a synthesized `.md` file from the vault directory on the left to read its raw wikilinked contents.</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Explorer Globals
+let currentFileContent = '';
+let currentFileName = '';
+
+function downloadSelectedFile() {
+    if (!currentFileContent || !currentFileName) return;
+    const blob = new Blob([currentFileContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFileName.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function loadVaultFiles() {
+    const subjectId = document.getElementById('subject-data').getAttribute('data-id');
+    const treeContainer = document.getElementById('vault-file-tree');
+    if (!treeContainer) return;
+    
+    treeContainer.innerHTML = `<div style="color: var(--dim); font-size: 11px; font-family: 'JetBrains Mono', monospace;">Reading vault...</div>`;
+    
+    fetch(`/subjects/${subjectId}/vault-files`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                treeContainer.innerHTML = '';
+                if (!data.files || data.files.length === 0) {
+                    treeContainer.innerHTML = `<div style="color: var(--dim); font-size: 11px; font-style: italic;">No vault files compiled. Please click 'Export Vault' to build the files on disk.</div>`;
+                    return;
+                }
+                
+                data.files.forEach(f => {
+                    const div = document.createElement('div');
+                    div.style.display = 'flex';
+                    div.style.alignItems = 'center';
+                    div.style.gap = '6px';
+                    div.style.padding = '6px 8px';
+                    div.style.cursor = 'pointer';
+                    div.style.borderRadius = '3px';
+                    div.style.fontFamily = "'JetBrains Mono', monospace";
+                    div.style.fontSize = '11px';
+                    div.style.transition = 'background 0.2s, color 0.2s';
+                    div.style.color = 'var(--dim)';
+                    div.innerHTML = `
+                        <iconify-icon icon="mdi:markdown" width="14" style="color: var(--signal); flex-shrink: 0;"></iconify-icon>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.path}</span>
+                    `;
+                    
+                    div.addEventListener('mouseenter', () => {
+                        if (!div.classList.contains('active-file')) {
+                            div.style.background = 'rgba(255,255,255,0.03)';
+                            div.style.color = 'var(--bone)';
+                        }
+                    });
+                    
+                    div.addEventListener('mouseleave', () => {
+                        if (!div.classList.contains('active-file')) {
+                            div.style.background = 'transparent';
+                            div.style.color = 'var(--dim)';
+                        }
+                    });
+                    
+                    div.addEventListener('click', () => {
+                        document.querySelectorAll('#vault-file-tree > div').forEach(el => {
+                            el.classList.remove('active-file');
+                            el.style.background = 'transparent';
+                            el.style.color = 'var(--dim)';
+                        });
+                        div.classList.add('active-file');
+                        div.style.background = 'rgba(255,171,0,0.08)';
+                        div.style.color = 'var(--signal)';
+                        
+                        previewVaultFile(subjectId, f.path);
+                    });
+                    
+                    treeContainer.appendChild(div);
+                });
+            }
+        })
+        .catch(err => {
+            console.error("Failed to load vault files:", err);
+            treeContainer.innerHTML = `<div style="color: var(--alert); font-size: 11px;">Failed to load vault files.</div>`;
+        });
+}
+
+function previewVaultFile(subjectId, path) {
+    const previewBox = document.getElementById('file-preview-box');
+    const filenameDisplay = document.getElementById('selected-filename');
+    const dlBtn = document.getElementById('download-selected-btn');
+    
+    previewBox.innerText = 'Loading file contents...';
+    filenameDisplay.innerText = path;
+    
+    fetch(`/subjects/${subjectId}/vault-file/${path}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                currentFileContent = data.content;
+                currentFileName = path;
+                previewBox.innerText = data.content;
+                dlBtn.style.display = 'inline-flex';
+            } else {
+                previewBox.innerText = 'Error loading file: ' + data.message;
+                dlBtn.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            console.error("Failed to preview file:", err);
+            previewBox.innerText = 'Failed to load file content from server.';
+            dlBtn.style.display = 'none';
+        });
+}
+
+// Auto-refresh when pipeline is running
+(function() {
+    const subjectData = document.getElementById('subject-data');
+    if (subjectData && subjectData.getAttribute('data-running') === 'true') {
+        // Polling is handled by app.js pollStatus()
+    }
+    
+    const notesTabBtn = document.querySelector('[data-tab="tab-notes"]');
+    if (notesTabBtn) {
+        notesTabBtn.addEventListener('click', loadVaultFiles);
+    }
+    
+    loadVaultFiles();
+})();
+</script>
+{% endblock %}

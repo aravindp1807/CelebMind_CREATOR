@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block title %}MNEME — Scraper Control Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════ HEADER & HUD METRICS ═══════════ -->
+<section class="reveal" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h1 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 28px; color: var(--bone); text-transform: uppercase; letter-spacing: 1px;">
+                <iconify-icon icon="mdi:radar" width="24" style="vertical-align: middle; margin-right: 8px; color: var(--raw);"></iconify-icon>
+                Crawler HUD Console
+            </h1>
+        </div>
+        <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--dim);">
+            Real-time acquisition metrics, rate limits control, and source debugging.
+        </p>
+    </div>
+    
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <button id="refresh-stats-btn" class="btn-secondary" style="font-size: 12px; padding: 8px 16px; display: flex; align-items: center; gap: 6px;">
+            <iconify-icon icon="mdi:refresh" width="14" id="refresh-icon"></iconify-icon>
+            Sync HUD Stats
+        </button>
+    </div>
+</section>
+
+<!-- ═══════════ STATS BENTO GRID ═══════════ -->
+<div class="reveal" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 45px;">
+    <!-- Card 1: Active Crawl Load -->
+    <div class="glow-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; border-left: 3px solid var(--signal);">
+        <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                ACTIVE CRAWLER LOAD
+            </div>
+            <div style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 36px; color: var(--signal); line-height: 1; display: flex; align-items: center; gap: 12px;">
+                <span id="stat-active-crawls">{{ stats.active_crawls }}</span>
+                <span id="load-spinner" class="pulse-dot" style="background: var(--signal); width: 12px; height: 12px; display: {% if stats.active_crawls > 0 %}inline-block{% else %}none{% endif %};"></span>
+            </div>
+        </div>
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); margin-top: 12px;" id="stat-active-desc">
+            {% if stats.active_crawls > 0 %}
+            Crawling threads active in the background.
+            {% else %}
+            System idle. Awaiting subject trace request.
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Card 2: Scrape Success Rate -->
+    <div class="glow-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; border-left: 3px solid var(--raw);">
+        <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                ACQUISITION RATE
+            </div>
+            <div style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 36px; color: var(--raw); line-height: 1;" id="stat-success-rate">
+                {{ stats.success_rate }}%
+            </div>
+        </div>
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); margin-top: 12px;">
+            Target URLs resolved and successfully parsed.
+        </div>
+    </div>
+
+    <!-- Card 3: Total Scraped Docs -->
+    <div class="glow-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; border-left: 3px solid var(--bone);">
+        <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                INDEXED WEB RAW TEXTS
+            </div>
+            <div style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 36px; color: var(--bone); line-height: 1;" id="stat-scraped-docs">
+                {{ stats.scraped_docs }}
+            </div>
+        </div>
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); margin-top: 12px;">
+            Total document items scraped from online sources.
+        </div>
+    </div>
+
+    <!-- Card 4: Total Tracked Sources -->
+    <div class="glow-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; border-left: 3px solid var(--dim);">
+        <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                TRACKED SOURCE URLS
+            </div>
+            <div style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 36px; color: var(--bone); line-height: 1;" id="stat-total-sources">
+                {{ stats.total_sources }}
+            </div>
+        </div>
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); margin-top: 12px;">
+            Total URLs tracked: <span id="stat-success-sources" style="color: var(--raw);">{{ stats.success_sources }}</span> OK / <span id="stat-failed-sources" style="color: var(--alert);">{{ stats.failed_sources }}</span> ERR.
+        </div>
+    </div>
+</div>
+
+<div class="reveal" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 45px; align-items: start;">
+    <!-- ═══════════ GLOBAL SCRAPER CONFIG ═══════════ -->
+    <div class="glow-card" style="padding: 28px;">
+        <h2 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; color: var(--bone); text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+            <iconify-icon icon="mdi:cog" width="18" style="color: var(--signal);"></iconify-icon>
+            Acquisition Settings
+        </h2>
+        
+        <form id="crawler-settings-form">
+            <!-- Max depth / limit -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); margin-bottom: 8px;">
+                    MAX SOURCES SCRAPED PER SPIDER:
+                </label>
+                <input 
+                    type="number" 
+                    id="max_sources_per_type" 
+                    name="max_sources_per_type" 
+                    min="1" 
+                    max="500" 
+                    value="{{ scrape_config.max_sources_per_type }}" 
+                    style="width: 100%; background: #08090a; border: 1px solid rgba(255,171,0,0.15); border-radius: 4px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--bone); outline: none; margin-top: 4px; box-sizing: border-box; transition: border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--signal)'"
+                    onblur="this.style.borderColor='rgba(255,171,0,0.15)'"
+                >
+            </div>
+
+            <!-- Enabled Spiders -->
+            <div style="margin-bottom: 24px;">
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); margin-bottom: 12px; text-transform: uppercase;">
+                    SPIDER SYSTEM SWITCHES
+                </span>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Wikipedia -->
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--bone); display: flex; align-items: center; gap: 8px;">
+                            <span class="scraper-status-dot {% if sources_config.wikipedia.enabled %}active{% endif %}" id="dot-wikipedia"></span>
+                            Wikipedia Parser
+                        </span>
+                        <input type="checkbox" id="check-wikipedia" name="wikipedia" {% if sources_config.wikipedia.enabled %}checked{% endif %} style="accent-color: var(--raw); scale: 1.1;">
+                    </label>
+
+                    <!-- IMDb -->
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--bone); display: flex; align-items: center; gap: 8px;">
+                            <span class="scraper-status-dot {% if sources_config.imdb.enabled %}active{% endif %}" id="dot-imdb"></span>
+                            IMDb Crawler
+                        </span>
+                        <input type="checkbox" id="check-imdb" name="imdb" {% if sources_config.imdb.enabled %}checked{% endif %} style="accent-color: var(--raw); scale: 1.1;">
+                    </label>
+
+                    <!-- News -->
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--bone); display: flex; align-items: center; gap: 8px;">
+                            <span class="scraper-status-dot {% if sources_config.news.enabled %}active{% endif %}" id="dot-news"></span>
+                            News Sitemaps Crawler
+                        </span>
+                        <input type="checkbox" id="check-news" name="news" {% if sources_config.news.enabled %}checked{% endif %} style="accent-color: var(--raw); scale: 1.1;">
+                    </label>
+
+                    <!-- AI Search -->
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0;">
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--bone); display: flex; align-items: center; gap: 8px;">
+                            <span class="scraper-status-dot {% if sources_config.ai_search.enabled %}active{% endif %}" id="dot-ai_search"></span>
+                            AI Search Suggester (OpenRouter)
+                        </span>
+                        <input type="checkbox" id="check-ai_search" name="ai_search" {% if sources_config.ai_search.enabled %}checked{% endif %} style="accent-color: var(--raw); scale: 1.1;">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Rate limit config sliders -->
+            <div style="margin-bottom: 24px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); margin-bottom: 16px; text-transform: uppercase;">
+                    REQUEST RATE LIMITS (POLITE CRAWLING COOLDOWN)
+                </span>
+                
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); margin-bottom: 6px;">
+                            WIKIPEDIA COOLDOWN:
+                            <span id="rate-wiki-val" style="color: var(--raw);">{{ sources_config.wikipedia.rate_limit }}s</span>
+                        </label>
+                        <input type="range" name="rate_limit_wikipedia" min="0.1" max="10.0" step="0.1" value="{{ sources_config.wikipedia.rate_limit }}" style="width: 100%; accent-color: var(--raw); cursor: pointer;" oninput="document.getElementById('rate-wiki-val').innerText = this.value + 's'">
+                    </div>
+
+                    <div>
+                        <label style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); margin-bottom: 6px;">
+                            IMDB COOLDOWN:
+                            <span id="rate-imdb-val" style="color: var(--raw);">{{ sources_config.imdb.rate_limit }}s</span>
+                        </label>
+                        <input type="range" name="rate_limit_imdb" min="0.1" max="10.0" step="0.1" value="{{ sources_config.imdb.rate_limit }}" style="width: 100%; accent-color: var(--raw); cursor: pointer;" oninput="document.getElementById('rate-imdb-val').innerText = this.value + 's'">
+                    </div>
+
+                    <div>
+                        <label style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); margin-bottom: 6px;">
+                            NEWS COOLDOWN:
+                            <span id="rate-news-val" style="color: var(--raw);">{{ sources_config.news.rate_limit }}s</span>
+                        </label>
+                        <input type="range" name="rate_limit_news" min="0.1" max="10.0" step="0.1" value="{{ sources_config.news.rate_limit }}" style="width: 100%; accent-color: var(--raw); cursor: pointer;" oninput="document.getElementById('rate-news-val').innerText = this.value + 's'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Sitemaps List -->
+            <div style="margin-bottom: 24px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <label style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); margin-bottom: 8px;">
+                    NEWS SITEMAP TARGETS (ONE PER LINE)
+                </label>
+                <textarea 
+                    id="news_sitemaps" 
+                    rows="3" 
+                    style="width: 100%; background: #08090a; border: 1px solid rgba(255,171,0,0.15); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--bone); resize: vertical; outline: none; focus-border-color: var(--signal);"
+                >{% for sm in sources_config.news.sitemaps %}{{ sm.name }} | {{ sm.url }}
+{% endfor %}</textarea>
+                <div style="font-size: 10px; color: var(--dim); margin-top: 4px; font-family: 'Plus Jakarta Sans', sans-serif;">
+                    Format: <code style="color: var(--signal);">Sitemap Name | URL</code>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" id="save-settings-btn" style="width: 100%; justify-content: center; padding: 10px 0;">
+                <iconify-icon icon="mdi:content-save-outline" width="14" style="vertical-align: middle; margin-right: 6px;"></iconify-icon>
+                Save Configurations
+            </button>
+        </form>
+    </div>
+
+    <!-- ═══════════ AD-HOC TEST SCRAPER CONSOLE ═══════════ -->
+    <div class="glow-card" style="padding: 28px;">
+        <h2 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; color: var(--bone); text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+            <iconify-icon icon="mdi:console" width="18" style="color: var(--raw);"></iconify-icon>
+            Ad-Hoc Scrape Terminal
+        </h2>
+
+        <!-- Input Console -->
+        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+            <input 
+                type="url" 
+                id="test-url-input" 
+                placeholder="ENTER_TEST_TARGET_URL" 
+                style="flex: 1; background: #08090a; border: 1px solid rgba(43,217,203,0.2); border-radius: 4px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--bone); outline: none; transition: border 0.2s;"
+                onfocus="this.style.borderColor='var(--raw)'"
+                onblur="this.style.borderColor='rgba(43,217,203,0.2)'"
+            >
+            <button id="run-test-scrape-btn" class="btn-primary" style="background: var(--raw); border-color: var(--raw); color: var(--void); font-weight: 600; font-size: 12px;">
+                <iconify-icon icon="mdi:play" width="16" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>
+                Test URL
+            </button>
+        </div>
+
+        <!-- Terminal Output Screen -->
+        <div style="background: #040405; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--raw); min-height: 290px; max-height: 290px; overflow-y: auto; position: relative;" id="terminal-screen">
+            <div style="color: var(--dim); font-style: italic;">
+                MNEME ad-hoc diagnostic console ready.
+                Enter an external URL (http/https) above and click 'Test URL' to audit scraper fetching, headers, response times, and DOM selectors.
+            </div>
+        </div>
+        
+        <!-- Diagnostic Status Bar -->
+        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); padding: 0 4px;">
+            <span>STATUS: <span id="terminal-status" style="color: var(--dim);">IDLE</span></span>
+            <span id="terminal-dots" style="visibility: hidden;">POLLING_DIAGNOSTICS...</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ RECENT ACQUISITION AUDIT LOG ═══════════ -->
+<section class="glow-card reveal" style="padding: 28px; margin-bottom: 40px;">
+    <h2 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; color: var(--bone); text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+        <iconify-icon icon="mdi:text-box-search-outline" width="18" style="color: var(--raw);"></iconify-icon>
+        Recent Scraping Jobs (Audit Log)
+    </h2>
+    
+    <div style="overflow-x: auto; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;" id="audit-log-table">
+            <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-transform: uppercase;">
+                    <th style="padding: 10px 12px;">ID</th>
+                    <th style="padding: 10px 12px;">Subject Traced</th>
+                    <th style="padding: 10px 12px;">Spider</th>
+                    <th style="padding: 10px 12px;">Source URL</th>
+                    <th style="padding: 10px 12px;">Outcome</th>
+                    <th style="padding: 10px 12px; text-align: right;">Executed At</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr id="audit-loading-row">
+                    <td colspan="6" style="padding: 30px; text-align: center; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
+                        <span class="btn-loading" style="display: inline-block; width: 14px; height: 14px; vertical-align: middle; margin-right: 8px;"></span>
+                        Fetching database transaction logs...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    
+    // Status checkboxes toggling live dots
+    const switches = ["wikipedia", "imdb", "news", "ai_search"];
+    switches.forEach(sw => {
+        const chk = document.getElementById(`check-${sw}`);
+        const dot = document.getElementById(`dot-${sw}`);
+        if(chk && dot) {
+            chk.addEventListener("change", () => {
+                if(chk.checked) {
+                    dot.classList.add("active");
+                } else {
+                    dot.classList.remove("active");
+                }
+            });
+        }
+    });
+
+    // Refresh dashboard stats
+    const refreshBtn = document.getElementById("refresh-stats-btn");
+    const refreshIcon = document.getElementById("refresh-icon");
+    
+    function refreshStats() {
+        if (refreshBtn.disabled) return;
+        refreshBtn.disabled = true;
+        if(refreshIcon) refreshIcon.style.animation = "spin 1s linear infinite";
+
+        fetch("/api/scrape-stats")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    // Update stats counters
+                    document.getElementById("stat-active-crawls").innerText = data.stats.active_crawls;
+                    document.getElementById("stat-success-rate").innerText = data.stats.success_rate + "%";
+                    document.getElementById("stat-scraped-docs").innerText = data.stats.scraped_docs;
+                    document.getElementById("stat-total-sources").innerText = data.stats.total_sources;
+                    document.getElementById("stat-success-sources").innerText = data.stats.success_sources;
+                    document.getElementById("stat-failed-sources").innerText = data.stats.failed_sources;
+
+                    // Toggle load pulse
+                    const pulse = document.getElementById("load-spinner");
+                    const activeDesc = document.getElementById("stat-active-desc");
+                    if (data.stats.active_crawls > 0) {
+                        pulse.style.display = "inline-block";
+                        activeDesc.innerText = `${data.stats.active_crawls} active crawling thread(s) currently pulling data.`;
+                    } else {
+                        pulse.style.display = "none";
+                        activeDesc.innerText = "System idle. Awaiting subject trace request.";
+                    }
+
+                    // Rebuild audit logs table
+                    const tbody = document.querySelector("#audit-log-table tbody");
+                    tbody.innerHTML = "";
+                    
+                    if (data.recent_sources.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--dim); font-family: 'JetBrains Mono', monospace;">No scraping logs found in database.</td></tr>`;
+                    } else {
+                        data.recent_sources.forEach(s => {
+                            let statusClass = "text-yellow-500";
+                            let statusBadge = "pending";
+                            if(s.status === "success") {
+                                statusClass = "color: var(--raw); font-weight: 500;";
+                                statusBadge = "success";
+                            } else if (s.status === "failed") {
+                                statusClass = "color: var(--alert); font-weight: 500;";
+                                statusBadge = "failed";
+                            } else {
+                                statusClass = "color: var(--signal); font-weight: 500;";
+                                statusBadge = "running";
+                            }
+
+                            const tr = document.createElement("tr");
+                            tr.style.borderBottom = "1px solid rgba(255,255,255,0.03)";
+                            tr.style.fontFamily = "'JetBrains Mono', monospace";
+                            tr.style.fontSize = "11px";
+                            tr.innerHTML = `
+                                <td style="padding: 12px 10px; color: var(--dim);">#${s.id}</td>
+                                <td style="padding: 12px 10px; color: var(--bone); font-family: 'Plus Jakarta Sans', sans-serif; font-weight:500;">${s.subject_name}</td>
+                                <td style="padding: 12px 10px;"><span style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 2px; color: var(--dim); text-transform: uppercase;">${s.source_type}</span></td>
+                                <td style="padding: 12px 10px; color: var(--dim); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href="${s.url}" target="_blank" style="color: inherit; text-decoration: none; hover-color: var(--raw);">${s.url}</a></td>
+                                <td style="padding: 12px 10px;"><span style="${statusClass}">${statusBadge}</span></td>
+                                <td style="padding: 12px 10px; text-align: right; color: var(--dim);">${s.fetched_at || '-'}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            })
+            .catch(err => console.error("Error refreshing stats:", err))
+            .finally(() => {
+                setTimeout(() => {
+                    refreshBtn.disabled = false;
+                    if(refreshIcon) refreshIcon.style.animation = "none";
+                }, 500);
+            });
+    }
+    
+    // Refresh stats on load
+    refreshStats();
+    refreshBtn.addEventListener("click", refreshStats);
+
+    // Save configuration settings
+    const settingsForm = document.getElementById("crawler-settings-form");
+    settingsForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        
+        const saveBtn = document.getElementById("save-settings-btn");
+        const originalHtml = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<span class="btn-loading" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: middle;"></span>Saving Configuration...`;
+
+        const sources = {
+            wikipedia: document.getElementById("check-wikipedia").checked,
+            imdb: document.getElementById("check-imdb").checked,
+            news: document.getElementById("check-news").checked,
+            ai_search: document.getElementById("check-ai_search").checked
+        };
+
+        const rate_limit_wikipedia = parseFloat(settingsForm.elements["rate_limit_wikipedia"].value);
+        const rate_limit_imdb = parseFloat(settingsForm.elements["rate_limit_imdb"].value);
+        const rate_limit_news = parseFloat(settingsForm.elements["rate_limit_news"].value);
+
+        const max_sources_per_type = parseInt(document.getElementById("max_sources_per_type").value);
+
+        const sitemapsText = document.getElementById("news_sitemaps").value;
+        const news_sitemaps = [];
+        sitemapsText.split("\n").forEach(line => {
+            if (line.includes("|")) {
+                const parts = line.split("|");
+                const name = parts[0].trim();
+                const url = parts[1].trim();
+                if(name && url) {
+                    news_sitemaps.push({ name, url });
+                }
+            }
+        });
+
+        const payload = {
+            sources,
+            rate_limit_wikipedia,
+            rate_limit_imdb,
+            rate_limit_news,
+            max_sources_per_type,
+            news_sitemaps
+        };
+
+        fetch("/api/scraper-dashboard/save-config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === "ok") {
+                if (window.showToast) {
+                    showToast("Configuration saved and written to config/sources.yaml", "success");
+                } else {
+                    alert("Configuration saved successfully!");
+                }
+                refreshStats();
+            } else {
+                if (window.showToast) {
+                    showToast("Error saving: " + data.message, "error");
+                } else {
+                    alert("Error saving: " + data.message);
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Save config error:", err);
+            showToast("Failed to connect to config API.", "error");
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalHtml;
+        });
+    });
+
+    // Interactive Ad-Hoc Test Scraper
+    const testBtn = document.getElementById("run-test-scrape-btn");
+    const testInput = document.getElementById("test-url-input");
+    const terminal = document.getElementById("terminal-screen");
+    const termStatus = document.getElementById("terminal-status");
+    const termDots = document.getElementById("terminal-dots");
+    let pollingInterval = null;
+
+    function pollTestLogs() {
+        fetch("/api/scraper-dashboard/test-log")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    terminal.innerHTML = "";
+                    if (data.logs.length === 0) {
+                        terminal.innerHTML = `<div style="color: var(--dim);">Awaiting thread initialize...</div>`;
+                        return;
+                    }
+                    
+                    data.logs.forEach(log => {
+                        const div = document.createElement("div");
+                        div.style.marginBottom = "4px";
+                        if (log.startsWith("[+]")) {
+                            div.style.color = "var(--raw)";
+                        } else if (log.startsWith("[!]")) {
+                            div.style.color = "var(--alert)";
+                        } else if (log.startsWith("[*]")) {
+                            div.style.color = "var(--signal)";
+                        } else if (log.startsWith("---")) {
+                            div.style.color = "var(--dim)";
+                        } else {
+                            div.style.color = "var(--bone)";
+                        }
+                        div.innerText = log;
+                        terminal.appendChild(div);
+                    });
+                    
+                    terminal.scrollTop = terminal.scrollHeight;
+
+                    const lastLog = data.logs[data.logs.length - 1];
+                    if (lastLog && (lastLog.includes("SUCCESS:") || lastLog.includes("FAILED:") || lastLog.includes("Warning:"))) {
+                        clearInterval(pollingInterval);
+                        termStatus.innerText = lastLog.includes("SUCCESS:") ? "SUCCESS" : "FAILED";
+                        termStatus.style.color = lastLog.includes("SUCCESS:") ? "var(--raw)" : "var(--alert)";
+                        termDots.style.visibility = "hidden";
+                        testBtn.disabled = false;
+                        testBtn.innerHTML = `<iconify-icon icon="mdi:play" width="16" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>Test URL`;
+                        testInput.disabled = false;
+                        refreshStats();
+                    }
+                }
+            })
+            .catch(err => console.error("Error fetching test log:", err));
+    }
+
+    testBtn.addEventListener("click", () => {
+        const url = testInput.value.trim();
+        if(!url) {
+            showToast("Enter a target URL first", "error");
+            return;
+        }
+
+        testBtn.disabled = true;
+        testBtn.innerHTML = `<span class="btn-loading" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: middle;"></span>CRAWLING...`;
+        testInput.disabled = true;
+        terminal.innerHTML = `<div style="color: var(--signal);">[*] Spawning diagnostic fetcher thread...</div>`;
+        termStatus.innerText = "RUNNING";
+        termStatus.style.color = "var(--signal)";
+        termDots.style.visibility = "visible";
+
+        fetch("/api/scraper-dashboard/test-scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "ok") {
+                clearInterval(pollingInterval);
+                pollingInterval = setInterval(pollTestLogs, 1000);
+            } else {
+                terminal.innerHTML = `<div style="color: var(--alert);">[!] Error starting test: ${data.message}</div>`;
+                testBtn.disabled = false;
+                testBtn.innerHTML = `<iconify-icon icon="mdi:play" width="16" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>Test URL`;
+                testInput.disabled = false;
+                termStatus.innerText = "ERROR";
+                termStatus.style.color = "var(--alert)";
+                termDots.style.visibility = "hidden";
+            }
+        })
+        .catch(err => {
+            console.error("Test scrape error:", err);
+            terminal.innerHTML = `<div style="color: var(--alert);">[!] Network error connecting to scraper API.</div>`;
+            testBtn.disabled = false;
+            testBtn.innerHTML = `<iconify-icon icon="mdi:play" width="16" style="vertical-align: middle; margin-right: 4px;"></iconify-icon>Test URL`;
+            testInput.disabled = false;
+            termStatus.innerText = "ERROR";
+            termStatus.style.color = "var(--alert)";
+            termDots.style.visibility = "hidden";
+        });
+    });
+});
+</script>
+{% endblock %}

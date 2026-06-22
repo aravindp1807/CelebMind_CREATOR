@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "synthetic-brain"
+version = "0.1.0"
+description = "Scrape, chunk, embed, cluster, synthesize, and export celebrity knowledge as an Obsidian vault"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "python-dotenv>=1.0",
+    "pgvector>=0.3",
+    "scrapling",
+    "sentence-transformers",
+    "spacy",
+    "scikit-learn",
+    "openai",
+    "flask",
+    "pyyaml",
+    "rich",
+]
+
+[project.scripts]
+synthetic-brain = "src.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

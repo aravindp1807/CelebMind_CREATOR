@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+
+{% block title %}MNEME — Obsidian Knowledge Vaults{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════ HEADER ═══════════ -->
+<section class="reveal" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h1 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 28px; color: var(--bone); text-transform: uppercase; letter-spacing: 1px;">
+                <iconify-icon icon="mdi:folder-multiple-outline" width="24" style="vertical-align: middle; margin-right: 8px; color: var(--signal);"></iconify-icon>
+                Obsidian Vaults Dashboard
+            </h1>
+        </div>
+        <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--dim);">
+            In-browser visual explorer for synthesized Obsidian vaults. Read wikilinked intelligence notes and inspect connection graphs.
+        </p>
+    </div>
+    
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <a id="download-zip-btn" href="#" class="btn-primary" style="font-size: 12px; padding: 8px 18px; text-decoration: none; display: none; align-items: center; gap: 6px; background: var(--raw); border-color: var(--raw); color: var(--void); font-weight: 600;">
+            <iconify-icon icon="mdi:download" width="14"></iconify-icon>
+            Download Vault (.ZIP)
+        </a>
+    </div>
+</section>
+
+{% if not vaults %}
+<!-- Empty State -->
+<div class="reveal glow-card" style="padding: 60px; text-align: center; max-width: 600px; margin: 40px auto;">
+    <iconify-icon icon="mdi:folder-alert-outline" width="48" style="color: var(--dim); margin-bottom: 16px;"></iconify-icon>
+    <h3 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; color: var(--bone); text-transform: uppercase; margin-bottom: 12px;">No Vaults Compiled Yet</h3>
+    <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 24px;">
+        There are currently no generated Obsidian vaults found in the output directory. Go back to the main Pipeline dashboard and trace a subject name or upload documents to start compiling your first intelligence vault.
+    </p>
+    <a href="{{ url_for('web.index') }}" class="btn-primary" style="text-decoration: none; font-size: 12px; padding: 10px 24px;">
+        Trace a Subject
+    </a>
+</div>
+{% else %}
+
+<!-- ═══════════ MAIN EXPLORER INTERFACE ═══════════ -->
+<div class="reveal" style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; margin-bottom: 40px;">
+    <!-- LEFT COLUMN: VAULT & FILE SELECTORS -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Vault Selector Selector -->
+        <div class="glow-card" style="padding: 16px;">
+            <label style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                Select Active Vault
+            </label>
+            <select id="vault-selector" style="width: 100%; background: #08090a; border: 1px solid rgba(255,171,0,0.2); border-radius: 4px; padding: 10px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--bone); outline: none; cursor: pointer; transition: border-color 0.2s;" onchange="selectVault(this.value)">
+                {% for vault in vaults %}
+                    <option value="{{ vault.name }}" data-subid="{{ vault.subject_id or '' }}">{{ vault.name.replace('_', ' ') }} ({{ vault.file_count }} notes)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Files Browser Tree -->
+        <div class="glow-card" style="padding: 20px; background: #08090a; overflow-y: auto; max-height: 480px; min-height: 380px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <span>Vault Index</span>
+                <button onclick="loadFilesList()" style="background: none; border: none; color: var(--raw); cursor: pointer; display: flex; align-items: center;" title="Reload files">
+                    <iconify-icon icon="mdi:reload" width="12"></iconify-icon>
+                </button>
+            </div>
+            <div id="file-list-tree" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Populated dynamically -->
+                <div style="color: var(--dim); font-size: 11px; font-family: 'JetBrains Mono', monospace;">Loading files...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: SPLIT TAB PANEL (READER / GRAPH) -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Double-Tab Navigation -->
+        <nav class="tab-nav" style="margin-bottom: 0; background: var(--surface); border-bottom: 1px solid rgba(255,255,255,0.05); border-top-left-radius: 8px; border-top-right-radius: 8px; padding: 4px 12px 0 12px;">
+            <button class="tab-btn active" data-tab="tab-reader" style="border-bottom: 2px solid transparent; padding: 12px 16px; font-size: 13px;">
+                <iconify-icon icon="mdi:book-open-outline" width="14" style="vertical-align: middle; margin-right: 6px;"></iconify-icon>
+                Vault Document Reader
+            </button>
+            <button class="tab-btn" data-tab="tab-obsidian-graph" style="border-bottom: 2px solid transparent; padding: 12px 16px; font-size: 13px;" id="graph-tab-trigger">
+                <iconify-icon icon="mdi:graph-outline" width="14" style="vertical-align: middle; margin-right: 6px;"></iconify-icon>
+                Obsidian Link Graph
+            </button>
+        </nav>
+
+        <!-- Tab Content 1: Note Reader -->
+        <div class="tab-content active" id="tab-reader">
+            <div class="glow-card" style="padding: 24px; min-height: 480px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <!-- File Metadata Head -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; margin-bottom: 20px;">
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--raw); display: flex; align-items: center; gap: 6px; overflow: hidden; font-weight: 500;">
+                            <iconify-icon icon="mdi:file-document-outline" width="16" style="flex-shrink: 0;"></iconify-icon>
+                            <span id="open-note-title" style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Select a note file on the left</span>
+                        </div>
+                        <button id="download-note-btn" class="btn-secondary" style="font-size: 11px; padding: 6px 12px; display: none; align-items: center; gap: 4px;" onclick="downloadNoteFile()">
+                            <iconify-icon icon="mdi:download" width="14"></iconify-icon>
+                            Download File
+                        </button>
+                    </div>
+                    
+                    <!-- Markdown Reader Area -->
+                    <div id="note-preview-content" class="markdown-body" style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; color: var(--bone); line-height: 1.6; max-height: 400px; overflow-y: auto; padding-right: 8px;">
+                        <div style="color: var(--dim); font-style: italic; text-align: center; padding: 60px 0;">
+                            Select a markdown node file from the directory tree to render its compiled content, cross-referenced entities, and source citations.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footnotes citation indicators -->
+                <div id="note-preview-footer" style="display: none; margin-top: 24px; padding-top: 14px; border-top: 1px solid rgba(255,171,0,0.08); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">
+                    CRAWLED NOTES AUTO-SYNTHESIZED &middot; WIKILINKS ENABLED
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content 2: Obsidian Note Link Graph -->
+        <div class="tab-content" id="tab-obsidian-graph">
+            <div class="glow-card" style="padding: 24px; min-height: 480px; position: relative;">
+                <div style="position: absolute; top: 16px; left: 16px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); z-index: 10; pointer-events: none; text-transform: uppercase;">
+                    Obsidian Graph View &middot; Drag to pan &middot; Scroll to zoom
+                </div>
+                <div style="position: absolute; top: 16px; right: 16px; display: flex; gap: 6px; z-index: 10;">
+                    <button class="btn-secondary" style="font-size: 9px; padding: 4px 8px;" onclick="resetGraphView()">Reset View</button>
+                </div>
+                
+                <!-- Graph Render Target SVG -->
+                <div id="obsidian-link-graph" style="width: 100%; height: 430px; background: #040405; border-radius: 4px; border: 1px solid rgba(255,255,255,0.02); overflow: hidden;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Dashboard State
+let activeVault = '';
+let activeFiles = [];
+let currentFileContent = '';
+let currentFileName = '';
+
+// D3 Force Sim Variables
+let graphSim = null;
+let graphSvg = null;
+let graphG = null;
+
+// Download active note file as .md
+function downloadNoteFile() {
+    if (!currentFileContent || !currentFileName) return;
+    const blob = new Blob([currentFileContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Convert Wikilink format [[Note Name]] or [[Note Name|Alias]] into clickable HTML links
+function parseWikilinks(text) {
+    if (!text) return '';
+    
+    // Replace [[Link Target|Display Text]]
+    let parsed = text.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (match, target, alias) => {
+        return `<a href="#" class="wiki-link" data-target="${target.trim()}">${alias.trim()}</a>`;
+    });
+    
+    // Replace [[Link Target]]
+    parsed = parsed.replace(/\[\[([^\]]+)\]\]/g, (match, target) => {
+        return `<a href="#" class="wiki-link" data-target="${target.trim()}">${target.trim()}</a>`;
+    });
+    
+    // Fallback: replace markdown title tags with simpler formatting if needed
+    // Render standard markdown linebreaks
+    parsed = parsed.replace(/\n/g, '<br>');
+    
+    return parsed;
+}
+
+// Trigger selection of a vault
+function selectVault(vaultName) {
+    activeVault = vaultName;
+    
+    // Configure zip download link
+    const selectEl = document.getElementById('vault-selector');
+    const activeOpt = selectEl.options[selectEl.selectedIndex];
+    const subjectId = activeOpt.getAttribute('data-subid');
+    const zipBtn = document.getElementById('download-zip-btn');
+    
+    if (subjectId) {
+        zipBtn.href = `/subjects/${subjectId}/vault-zip`;
+        zipBtn.style.display = 'inline-flex';
+    } else {
+        zipBtn.style.display = 'none';
+    }
+    
+    // Clear preview
+    document.getElementById('open-note-title').innerText = 'Select a note file on the left';
+    document.getElementById('note-preview-content').innerHTML = `
+        <div style="color: var(--dim); font-style: italic; text-align: center; padding: 60px 0;">
+            Select a markdown node file from the directory tree to render its compiled content, cross-referenced entities, and source citations.
+        </div>
+    `;
+    document.getElementById('note-preview-footer').style.display = 'none';
+    document.getElementById('download-note-btn').style.display = 'none';
+    currentFileContent = '';
+    currentFileName = '';
+
+    // Load files lists and render graph
+    loadFilesList();
+    if (document.getElementById('tab-obsidian-graph').classList.contains('active')) {
+        renderObsidianGraph();
+    }
+}
+
+// Load markdown files inside selected vault
+function loadFilesList() {
+    if (!activeVault) return;
+    const listContainer = document.getElementById('file-list-tree');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = `<div style="color: var(--dim); font-size: 11px; font-family: 'JetBrains Mono', monospace;">Reading indices...</div>`;
+    
+    fetch(`/api/vault-explorer/${activeVault}/files`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                listContainer.innerHTML = '';
+                activeFiles = data.files || [];
+                
+                if (activeFiles.length === 0) {
+                    listContainer.innerHTML = `<div style="color: var(--dim); font-size: 11px; font-style: italic;">No markdown files found.</div>`;
+                    return;
+                }
+                
+                activeFiles.forEach(f => {
+                    const div = document.createElement('div');
+                    div.style.display = 'flex';
+                    div.style.alignItems = 'center';
+                    div.style.gap = '6px';
+                    div.style.padding = '6px 8px';
+                    div.style.cursor = 'pointer';
+                    div.style.borderRadius = '3px';
+                    div.style.fontFamily = "'JetBrains Mono', monospace";
+                    div.style.fontSize = '11px';
+                    div.style.transition = 'background 0.2s, color 0.2s';
+                    div.style.color = 'var(--dim)';
+                    div.innerHTML = `
+                        <iconify-icon icon="mdi:markdown" width="14" style="color: var(--signal); flex-shrink: 0;"></iconify-icon>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.path}">${f.path}</span>
+                    `;
+                    
+                    div.addEventListener('mouseenter', () => {
+                        if (!div.classList.contains('active-file')) {
+                            div.style.background = 'rgba(255,255,255,0.03)';
+                            div.style.color = 'var(--bone)';
+                        }
+                    });
+                    
+                    div.addEventListener('mouseleave', () => {
+                        if (!div.classList.contains('active-file')) {
+                            div.style.background = 'transparent';
+                            div.style.color = 'var(--dim)';
+                        }
+                    });
+                    
+                    div.addEventListener('click', () => {
+                        selectFile(div, f.path);
+                    });
+                    
+                    listContainer.appendChild(div);
+                });
+                
+                // Auto-select first note file if available
+                if (activeFiles.length > 0) {
+                    const firstDiv = listContainer.firstElementChild;
+                    selectFile(firstDiv, activeFiles[0].path);
+                }
+            } else {
+                listContainer.innerHTML = `<div style="color: var(--alert); font-size: 11px;">Error: ${data.message}</div>`;
+            }
+        })
+        .catch(err => {
+            console.error("Failed to load files:", err);
+            listContainer.innerHTML = `<div style="color: var(--alert); font-size: 11px;">Network failed to fetch tree list.</div>`;
+        });
+}
+
+// Select a file and fetch contents
+function selectFile(element, filename) {
+    document.querySelectorAll('#file-list-tree > div').forEach(el => {
+        el.classList.remove('active-file');
+        el.style.background = 'transparent';
+        el.style.color = 'var(--dim)';
+    });
+    element.classList.add('active-file');
+    element.style.background = 'rgba(255,171,0,0.08)';
+    element.style.color = 'var(--signal)';
+    
+    const previewBox = document.getElementById('note-preview-content');
+    const filenameDisplay = document.getElementById('open-note-title');
+    const dlBtn = document.getElementById('download-note-btn');
+    const footer = document.getElementById('note-preview-footer');
+    
+    previewBox.innerHTML = '<div style="color: var(--signal); font-style: italic;">Retrieving file contents...</div>';
+    filenameDisplay.innerText = filename;
+    
+    fetch(`/api/vault-explorer/${activeVault}/file/${filename}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                currentFileContent = data.content;
+                currentFileName = filename;
+                
+                // Parse wikilinks and update content box
+                const htmlContent = parseWikilinks(data.content);
+                previewBox.innerHTML = htmlContent;
+                
+                // Add click listeners to parsed wikilinks
+                document.querySelectorAll('#note-preview-content a.wiki-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const targetName = link.getAttribute('data-target');
+                        navigateToNote(targetName);
+                    });
+                });
+                
+                dlBtn.style.display = 'inline-flex';
+                footer.style.display = 'block';
+            } else {
+                previewBox.innerHTML = `<div style="color: var(--alert);">Failed to load note: ${data.message}</div>`;
+                dlBtn.style.display = 'none';
+                footer.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            console.error("Error reading file:", err);
+            previewBox.innerHTML = `<div style="color: var(--alert);">Network error while reading note.</div>`;
+            dlBtn.style.display = 'none';
+            footer.style.display = 'none';
+        });
+}
+
+// Navigate to note by its name (Obsidian wikilink transition)
+function navigateToNote(noteName) {
+    if (!noteName) return;
+    
+    // Find matching filename (case-insensitive checks)
+    const targetFile = activeFiles.find(f => {
+        const basename = f.path.split('/').pop().replace('.md', '');
+        return basename.trim().toLowerCase() === noteName.trim().toLowerCase();
+    });
+    
+    if (targetFile) {
+        // Find corresponding div
+        const listDivs = document.querySelectorAll('#file-list-tree > div');
+        let matchedDiv = null;
+        listDivs.forEach(div => {
+            if (div.querySelector('span').innerText === targetFile.path) {
+                matchedDiv = div;
+            }
+        });
+        
+        if (matchedDiv) {
+            // Select the Tab reader
+            const tabReaderBtn = document.querySelector('[data-tab="tab-reader"]');
+            if (tabReaderBtn) tabReaderBtn.click();
+            
+            // Trigger selection click
+            selectFile(matchedDiv, targetFile.path);
+        } else {
+            showToast(`Note node not indexed in selector: ${noteName}`, 'info');
+        }
+    } else {
+        showToast(`Target note file does not exist: ${noteName}.md`, 'error');
+    }
+}
+
+// Renders the force-directed Obsidian connection graph using D3
+function renderObsidianGraph() {
+    if (!activeVault) return;
+    const container = document.getElementById('obsidian-link-graph');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Create elements
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    const svg = d3.select('#obsidian-link-graph')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('cursor', 'grab');
+        
+    const g = svg.append('g');
+    
+    graphSvg = svg;
+    graphG = g;
+    
+    // Zoom behavior
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 8])
+        .on('zoom', (event) => {
+            g.attr('transform', event.transform);
+        });
+        
+    svg.call(zoom);
+
+    fetch(`/api/vault-explorer/${activeVault}/graph`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status !== 'ok') {
+                container.innerHTML = `<div style="color: var(--alert); text-align: center; padding: 100px 0;">Error rendering graph: ${data.message}</div>`;
+                return;
+            }
+            
+            const nodes = data.nodes || [];
+            const links = data.links || [];
+            
+            if (nodes.length === 0) {
+                container.innerHTML = `<div style="color: var(--dim); text-align: center; padding: 100px 0; font-family: 'JetBrains Mono', monospace;">No note links found to visualize.</div>`;
+                return;
+            }
+
+            // D3 Sim setup
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(80))
+                .force('charge', d3.forceManyBody().strength(-120))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(25));
+                
+            graphSim = simulation;
+
+            // Render links
+            const link = g.append('g')
+                .attr('stroke', 'var(--dim)')
+                .attr('stroke-opacity', 0.25)
+                .attr('stroke-width', 1.2)
+                .selectAll('line')
+                .data(links)
+                .enter().append('line');
+
+            // Render node groups
+            const node = g.append('g')
+                .selectAll('g')
+                .data(nodes)
+                .enter().append('g')
+                .style('cursor', 'pointer')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', (event, d) => {
+                    navigateToNote(d.label);
+                });
+
+            // Node circles
+            node.append('circle')
+                .attr('r', d => {
+                    // Make index/home notes larger
+                    const isMain = d.label.toLowerCase() === activeVault.replace('_', ' ').toLowerCase();
+                    return isMain ? 8 : 5.5;
+                })
+                .attr('fill', d => {
+                    const isMain = d.label.toLowerCase() === activeVault.replace('_', ' ').toLowerCase();
+                    return isMain ? 'var(--signal)' : 'var(--raw)';
+                })
+                .attr('stroke', '#060607')
+                .attr('stroke-width', 1.5)
+                .attr('class', 'graph-node-circle');
+
+            // Node text labels
+            node.append('text')
+                .text(d => d.label)
+                .attr('dx', 10)
+                .attr('dy', 4)
+                .style('font-family', "'Rajdhani', sans-serif")
+                .style('font-size', '11px')
+                .style('font-weight', '500')
+                .style('fill', 'var(--bone)')
+                .style('opacity', 0.75)
+                .style('pointer-events', 'none');
+
+            // Sim ticker updates
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node
+                    .attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            // Drag helper implementations
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+                svg.style('cursor', 'grabbing');
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+                svg.style('cursor', 'grab');
+            }
+        })
+        .catch(err => {
+            console.error("D3 graph fetch error:", err);
+            container.innerHTML = `<div style="color: var(--alert); text-align: center; padding: 100px 0;">Failed to render graph from API.</div>`;
+        });
+}
+
+function resetGraphView() {
+    if (graphSvg && graphG) {
+        d3.select('#obsidian-link-graph svg')
+            .transition()
+            .duration(500)
+            .call(d3.zoom().transform, d3.zoomIdentity);
+    }
+}
+
+// Bind tabs and selectors on boot
+document.addEventListener("DOMContentLoaded", () => {
+    // Initial selector load
+    const selector = document.getElementById('vault-selector');
+    if (selector) {
+        selectVault(selector.value);
+    }
+    
+    // Bind click to Obsidian Graph tab to draw it
+    const graphTrigger = document.getElementById('graph-tab-trigger');
+    if (graphTrigger) {
+        graphTrigger.addEventListener('click', () => {
+            // Delay slightly to let layout expand, ensuring correct width computations
+            setTimeout(renderObsidianGraph, 100);
+        });
+    }
+});
+</script>
+{% endblock %}

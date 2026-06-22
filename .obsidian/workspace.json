@@ -1,0 +1,218 @@
+{
+  "main": {
+    "id": "58ac5487d61e5740",
+    "type": "split",
+    "children": [
+      {
+        "id": "65779f69c7bb7800",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d996b9b7533d7a5e",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "0005f8b3aa812b9e",
+    "type": "split",
+    "children": [
+      {
+        "id": "84524c06049473fe",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "be2fffdfd8173186",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "70794cb7626634ec",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "42f3ed97b7315aa5",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "19db7a73e506e61a",
+    "type": "split",
+    "children": [
+      {
+        "id": "7ea70fe5027b69af",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c9fbd5c05f2226d9",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "9e1017a8855259ad",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "b24866642432bce1",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "37d386d2925c83c9",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "5150e767e3964cc1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "d996b9b7533d7a5e",
+  "lastOpenFiles": [
+    "output/vault/MS Dhoni/templates/work.md",
+    "output/vault/MS Dhoni/templates/subject_home.md",
+    "output/vault/MS Dhoni/templates/place.md",
+    "output/vault/MS Dhoni/templates/person.md",
+    "output/vault/MS Dhoni/templates/organization.md",
+    "output/vault/MS Dhoni/templates/event.md",
+    "output/vault/MS Dhoni/vault-manifest.json",
+    "output/vault/MS Dhoni/Home.md",
+    "output/vault/MS Dhoni/brain/Open Questions.md",
+    "output/vault/MS Dhoni/brain/Contradictions.md",
+    "output/vault/MS Dhoni/brain/Sources.md",
+    "output/vault/MS Dhoni/brain/Key Facts.md",
+    "output/vault/MS Dhoni/brain/Profile.md",
+    "output/vault/MS Dhoni/Places/Index.md",
+    "output/vault/MS Dhoni/Events/Index.md",
+    "output/vault/MS Dhoni/Organizations/Index.md",
+    "output/vault/MS Dhoni/Works/Index.md",
+    "output/vault/MS Dhoni/People/Index.md",
+    "output/vault/MS Dhoni/Events/World Cup final.[248].md",
+    "output/vault/MS Dhoni/Places/the Wankhede Stadium.md",
+    "output/vault/MS Dhoni/Organizations/MCA.md",
+    "output/vault/MS Dhoni/Organizations/the Mumbai Cricket Association.md",
+    "output/vault/MS Dhoni/Organizations/Jharkhand Cricket Association.md",
+    "output/vault/MS Dhoni/Organizations/De Montfort University.md",
+    "output/vault/MS Dhoni/Works/career.[121] Dhoni.md",
+    "output/vault/MS Dhoni/People/Ziva Dhoni.md",
+    "output/vault/MS Dhoni/People/Sakshi Singh Rawat.md",
+    "output/vault/MS Dhoni/Works",
+    "output/vault/MS Dhoni/templates",
+    "output/vault/MS Dhoni/Places",
+    "output/vault/MS Dhoni/People",
+    "output/vault/MS Dhoni/Organizations",
+    "output/vault/MS Dhoni/Events",
+    "output/vault/MS Dhoni/brain",
+    "output/vault/MS Dhoni",
+    "output/scraped_raw/MS_Dhoni/doc_3.txt"
+  ]
+}

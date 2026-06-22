@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}MNEME — Tactical Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════ HERO SECTION ═══════════ -->
+<section class="hero reveal" id="trace">
+    <!-- Eyebrow -->
+    <div class="hero-eyebrow">
+        <span class="pulse-dot"></span>
+        RAW → SYNTHESIZED
+    </div>
+
+    <!-- Headline -->
+    <h1 class="hero-title metallic-title">
+        Type a name.<br>Watch a vault build itself.
+    </h1>
+
+    <!-- Subhead -->
+    <p class="hero-subtitle">
+        MNEME scrapes, chunks, extracts entities, clusters knowledge, and synthesizes sourced intelligence notes — automatically.
+    </p>
+
+    <!-- Targeting Console -->
+    <form action="{{ url_for('web.create_subject') }}" method="POST" class="targeting-console" id="trace-form">
+        <input
+            type="text"
+            name="name"
+            class="targeting-input"
+            placeholder="ENTER_SUBJECT_NAME"
+            required
+            autocomplete="off"
+            spellcheck="false"
+        >
+        <button type="submit" class="btn-primary" id="trace-btn">
+            <iconify-icon icon="mdi:arrow-right" width="16"></iconify-icon>
+            Trace
+        </button>
+    </form>
+
+    <!-- Mini Stats -->
+    <div class="hero-mini-stats">
+        <span><span class="stat-num">{{ global_stats.documents }}</span> Sources indexed</span>
+        <span><span class="stat-num">~2.4s</span> Avg. synthesis time</span>
+        <span><span class="stat-num">{{ global_stats.entities }}</span> Entities per subject</span>
+    </div>
+</section>
+
+<!-- ═══════════ PDF UPLOAD ZONE ═══════════ -->
+<section class="reveal" style="margin-bottom: 40px;">
+    <div class="section-eyebrow">Document Ingestion</div>
+    <form action="/upload-pdf" method="POST" enctype="multipart/form-data" id="pdf-upload-form">
+        <div class="upload-zone" id="upload-zone">
+            <div class="upload-icon">
+                <iconify-icon icon="mdi:file-pdf-box" width="36"></iconify-icon>
+            </div>
+            <div class="upload-label">Drop PDF files here or click to browse</div>
+            <div class="upload-hint">Supports .pdf — max 50MB per file</div>
+            <input type="file" name="pdf_file" accept=".pdf" style="display: none;" id="pdf-file-input">
+        </div>
+        <div id="pdf-file-name" style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--raw); display: none;"></div>
+        <button type="submit" class="btn-secondary" id="pdf-upload-btn" style="margin-top: 12px; display: none;">
+            <iconify-icon icon="mdi:upload" width="14"></iconify-icon>
+            Upload &amp; Ingest
+        </button>
+    </form>
+</section>
+
+<!-- ═══════════ SCRAPER CONTROL PANEL ═══════════ -->
+<section class="reveal" style="margin-bottom: 40px;">
+    <div class="scraper-panel" id="scraper-panel">
+        <div class="scraper-panel-header" onclick="this.parentElement.classList.toggle('open')">
+            <h3>
+                <iconify-icon icon="mdi:radar" width="14" style="vertical-align: middle; margin-right: 6px;"></iconify-icon>
+                Acquisition Control
+            </h3>
+            <iconify-icon icon="mdi:chevron-down" width="18" style="color: var(--dim); transition: transform 0.2s;"></iconify-icon>
+        </div>
+        <div class="scraper-panel-body">
+            <div class="scraper-toggle-row">
+                <div class="scraper-toggle-label">
+                    <span class="scraper-status-dot active"></span>
+                    <iconify-icon icon="mdi:wikipedia" width="16"></iconify-icon>
+                    Wikipedia
+                </div>
+                <label style="position: relative; display: inline-block; width: 36px; height: 20px;">
+                    <input type="checkbox" checked data-source="wikipedia" style="opacity:0; width:0; height:0;">
+                    <span style="position: absolute; cursor: pointer; inset: 0; background: var(--dim); border-radius: 10px; transition: 0.3s;"></span>
+                </label>
+            </div>
+            <div class="scraper-toggle-row">
+                <div class="scraper-toggle-label">
+                    <span class="scraper-status-dot active"></span>
+                    <iconify-icon icon="mdi:filmstrip" width="16"></iconify-icon>
+                    IMDb
+                </div>
+                <label style="position: relative; display: inline-block; width: 36px; height: 20px;">
+                    <input type="checkbox" checked data-source="imdb" style="opacity:0; width:0; height:0;">
+                    <span style="position: absolute; cursor: pointer; inset: 0; background: var(--dim); border-radius: 10px; transition: 0.3s;"></span>
+                </label>
+            </div>
+            <div class="scraper-toggle-row">
+                <div class="scraper-toggle-label">
+                    <span class="scraper-status-dot active"></span>
+                    <iconify-icon icon="mdi:newspaper-variant-outline" width="16"></iconify-icon>
+                    News
+                </div>
+                <label style="position: relative; display: inline-block; width: 36px; height: 20px;">
+                    <input type="checkbox" checked data-source="news" style="opacity:0; width:0; height:0;">
+                    <span style="position: absolute; cursor: pointer; inset: 0; background: var(--dim); border-radius: 10px; transition: 0.3s;"></span>
+                </label>
+            </div>
+            <div class="scraper-toggle-row">
+                <div class="scraper-toggle-label">
+                    <span class="scraper-status-dot disabled"></span>
+                    <iconify-icon icon="mdi:robot-outline" width="16"></iconify-icon>
+                    AI Search
+                </div>
+                <label style="position: relative; display: inline-block; width: 36px; height: 20px;">
+                    <input type="checkbox" data-source="ai_search" style="opacity:0; width:0; height:0;">
+                    <span style="position: absolute; cursor: pointer; inset: 0; background: var(--dim); border-radius: 10px; transition: 0.3s;"></span>
+                </label>
+            </div>
+
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.03);">
+                <label style="font-family: 'Rajdhani', sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); display: block; margin-bottom: 8px;">
+                    Max Sources Per Type
+                </label>
+                <input type="range" min="1" max="20" value="5" id="max-sources-slider"
+                       style="width: 100%; accent-color: var(--signal);">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--signal); text-align: center; margin-top: 4px;">
+                    <span id="max-sources-value">5</span> sources
+                </div>
+            </div>
+
+            <button class="btn-secondary" style="margin-top: 16px; width: 100%;" id="save-scrape-config">
+                <iconify-icon icon="mdi:content-save-outline" width="14"></iconify-icon>
+                Save Configuration
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ STATS BENTO GRID ═══════════ -->
+<section class="reveal" style="margin-bottom: 48px;" id="sources">
+    <div class="bento-grid">
+        <!-- Cell 1: Subjects Traced -->
+        <div class="bento-cell">
+            <div class="bento-value">{{ global_stats.subjects }}</div>
+            <div class="bento-label">Subjects traced</div>
+        </div>
+
+        <!-- Cell 2: Source Types -->
+        <div class="bento-cell">
+            <div class="source-icons">
+                <div class="source-icon-pill">
+                    <span class="src-dot" style="background: var(--raw);"></span>
+                    <iconify-icon icon="mdi:wikipedia" width="14"></iconify-icon>
+                    Wiki
+                </div>
+                <div class="source-icon-pill">
+                    <span class="src-dot" style="background: var(--raw);"></span>
+                    <iconify-icon icon="mdi:filmstrip" width="14"></iconify-icon>
+                    IMDb
+                </div>
+                <div class="source-icon-pill">
+                    <span class="src-dot" style="background: var(--raw);"></span>
+                    <iconify-icon icon="mdi:newspaper-variant-outline" width="14"></iconify-icon>
+                    News
+                </div>
+                <div class="source-icon-pill">
+                    <span class="src-dot" style="background: var(--dim);"></span>
+                    <iconify-icon icon="mdi:account-group" width="14"></iconify-icon>
+                    Social
+                </div>
+            </div>
+            <div class="bento-label">Active pipelines</div>
+        </div>
+
+        <!-- Cell 3: Citation Rate -->
+        <div class="bento-cell">
+            <div class="bento-value">98%</div>
+            <div class="bento-label">Claims with source citation</div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ SUBJECTS LIST ═══════════ -->
+<section id="subjects">
+    <div class="section-eyebrow" style="display: flex; align-items: center; gap: 8px;">
+        <iconify-icon icon="mdi:account-search" width="14" style="color: var(--signal);"></iconify-icon>
+        Traced Subjects
+    </div>
+
+    {% if subjects %}
+        <div class="subject-grid">
+            {% for s in subjects %}
+                <div class="glow-card subject-card reveal">
+                    <div class="subject-header">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <a href="{{ url_for('web.subject_detail', id=s.id) }}" class="subject-title">{{ s.name }}</a>
+                                <form action="{{ url_for('web.reset_subject', id=s.id) }}" method="POST" style="margin: 0; display: inline-flex; align-items: center;" onsubmit="return confirm('Stop pipeline and delete all data for this subject?');">
+                                    <button type="submit" style="background: none; border: none; padding: 0; margin: 0; color: var(--alert); cursor: pointer; display: inline-flex; align-items: center; opacity: 0.6; transition: opacity 0.2s;" title="Stop / Reset Subject" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+                                        <iconify-icon icon="mdi:stop-circle-outline" width="16"></iconify-icon>
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="subject-date">{{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else 'Unknown' }}</div>
+                        </div>
+                        <span class="status-badge {{ s.status }}">
+                            <span class="badge-dot"></span>
+                            {{ s.status }}
+                        </span>
+                    </div>
+
+                    <!-- Pipeline stage dots -->
+                    <div class="pipeline-dots">
+                        {% for stage in s.stages %}
+                            <div class="p-dot {{ stage.status }}" title="{{ stage.stage }}: {{ stage.status }}"></div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="subject-stats-row">
+                        <div class="subject-stat">
+                            <span class="subject-stat-val">{{ s.stats.documents }}</span>
+                            <span class="subject-stat-lbl">Docs</span>
+                        </div>
+                        <div class="subject-stat">
+                            <span class="subject-stat-val">{{ s.stats.chunks if s.stats.chunks is defined else 0 }}</span>
+                            <span class="subject-stat-lbl">Chunks</span>
+                        </div>
+                        <div class="subject-stat">
+                            <span class="subject-stat-val">{{ s.stats.entities }}</span>
+                            <span class="subject-stat-lbl">Entities</span>
+                        </div>
+                        <div class="subject-stat">
+                            <span class="subject-stat-val">{{ s.stats.notes }}</span>
+                            <span class="subject-stat-lbl">Notes</span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="glow-card" style="text-align: center; padding: 60px 40px;">
+            <iconify-icon icon="mdi:radar" width="40" style="color: var(--dim); margin-bottom: 12px;"></iconify-icon>
+            <p style="color: var(--bone); font-size: 16px; margin-bottom: 6px;">No subjects traced yet</p>
+            <p style="color: var(--dim); font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;">Enter a subject name above to begin building your first intelligence vault.</p>
+        </div>
+    {% endif %}
+</section>
+
+{% endblock %}

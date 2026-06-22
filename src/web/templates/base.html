@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MNEME — Tactical Intelligence Dashboard{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              void:    '#060607',
+              surface: '#0D0F0E',
+              bone:    '#F3EFE4',
+              dim:     '#847E72',
+              raw:     '#2BD9CB',
+              signal:  '#FFAB00',
+              ember:   '#FF6D00',
+              alert:   '#FF3B3B',
+            },
+            fontFamily: {
+              rajdhani: ['Rajdhani', 'sans-serif'],
+              jakarta:  ['Plus Jakarta Sans', 'sans-serif'],
+              mono:     ['JetBrains Mono', 'monospace'],
+            },
+          },
+        },
+      }
+    </script>
+
+    <!-- Design System Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Iconify -->
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+    <!-- Layer 1: Grid Texture -->
+    <div class="bg-grid" aria-hidden="true"></div>
+
+    <!-- Layer 2: Constellation Canvas -->
+    <canvas id="constellation-canvas" class="bg-constellation" aria-hidden="true"></canvas>
+
+    <!-- Layer 3: Radial Vignette -->
+    <div class="bg-vignette" aria-hidden="true"></div>
+
+    <!-- Layer 4: Navigation -->
+    <nav class="navbar" id="main-nav">
+        <a href="{{ url_for('web.index') }}" class="nav-left">
+            <span class="nav-pulse"></span>
+            <span class="nav-wordmark">MNEME</span>
+        </a>
+
+        <div class="nav-center">
+            <a href="{{ url_for('web.index') }}" class="nav-link {% if request.endpoint == 'web.index' and not request.path.startswith('/scraper-dashboard') and not request.path.startswith('/vault-dashboard') %}active{% endif %}">Pipeline</a>
+            <a href="{{ url_for('web.scraper_dashboard') }}" class="nav-link {% if request.endpoint == 'web.scraper_dashboard' %}active{% endif %}">Crawler HUD</a>
+            <a href="{{ url_for('web.index') }}#sources" class="nav-link">Sources</a>
+            <a href="{{ url_for('web.vault_dashboard') }}" class="nav-link {% if request.endpoint == 'web.vault_dashboard' %}active{% endif %}">Vault</a>
+            <a href="#" class="nav-link">Docs</a>
+        </div>
+
+        <a href="{{ url_for('web.index') }}#trace" class="nav-cta">
+            <iconify-icon icon="mdi:crosshairs-gps" width="14"></iconify-icon>
+            Trace a Subject
+        </a>
+    </nav>
+
+    <!-- Toast container for notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Layer 5: Main Content -->
+    <main class="container">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash-msg">
+                  <span><iconify-icon icon="mdi:information-outline" width="16" style="vertical-align: middle; margin-right: 8px; color: var(--signal);"></iconify-icon>{{ message }}</span>
+                  <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Layer 6: Footer Watermark -->
+    <footer class="footer-watermark" style="position: relative; z-index: 10;">
+        <div class="watermark-text" aria-hidden="true">MNEME</div>
+        <div class="footer-line">Tactical Intelligence Platform &middot; v0.1</div>
+    </footer>
+
+    <!-- JS Logic -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

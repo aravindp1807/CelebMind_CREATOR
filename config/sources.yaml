@@ -1,0 +1,54 @@
+wikipedia:
+  enabled: true
+  rate_limit: 1.5
+  fetcher: basic
+  base_url: https://en.wikipedia.org/wiki/{name}
+  wikidata_api: https://www.wikidata.org/w/api.php
+  selectors:
+    content: div.mw-parser-output > p
+    infobox: table.infobox
+    title: h1#firstHeading
+    categories: div#mw-normal-catlinks ul li a
+imdb:
+  enabled: true
+  rate_limit: 2.0
+  fetcher: basic
+  search_url: https://www.imdb.com/find/?q={name}&s=nm
+  selectors:
+    bio: div[data-testid='bio-content']
+    filmography: div.filmo-category-section
+    name: h1 span.hero__primary-text
+    born: div[data-testid='birth-and-death-birthdate']
+news:
+  enabled: false
+  sitemaps:
+  - url: https://www.bbc.co.uk/news/sitemap.xml
+    name: BBC News
+  - url: https://www.reuters.com/arc/outboundfeeds/sitemap-index/?outputType=xml
+    name: Reuters
+  rate_limit: 2.0
+  max_articles_per_sitemap: 20
+  fetcher: basic
+  selectors:
+    article: article
+    title: h1
+    body: article p
+    date: time
+social:
+  enabled: false
+  rate_limit: 5.0
+  fetcher: stealthy
+  retry_attempts: 5
+  backoff_factor: 2.0
+  platforms:
+    twitter:
+      url_pattern: https://x.com/{handle}
+      selectors:
+        bio: div[data-testid='UserDescription']
+    instagram:
+      url_pattern: https://www.instagram.com/{handle}/
+      selectors:
+        bio: div.-vDIg span
+  proxy_list: []
+ai_search:
+  enabled: true

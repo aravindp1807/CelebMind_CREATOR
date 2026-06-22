@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}MNEME — Notes: {{ subject.name }}{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════ HEADER ═══════════ -->
+<section class="glow-card reveal" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <a href="{{ url_for('web.subject_detail', id=subject.id) }}" style="color: var(--dim); text-decoration: none; font-size: 20px; transition: color 0.2s;" title="Back to subject">
+                <iconify-icon icon="mdi:arrow-left" width="20"></iconify-icon>
+            </a>
+            <h1 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 24px; color: var(--bone);">
+                <iconify-icon icon="mdi:notebook-outline" width="20" style="vertical-align: middle; margin-right: 4px; color: var(--signal);"></iconify-icon>
+                Synthesized Vault
+            </h1>
+        </div>
+        <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: var(--dim); margin-left: 30px;">
+            Sourced intelligence notes compiled for <strong style="color: var(--bone);">{{ subject.name }}</strong>
+        </p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('web.subject_detail', id=subject.id) }}" class="btn-secondary" style="text-decoration: none; font-size: 12px; padding: 8px 16px;">
+            <iconify-icon icon="mdi:arrow-left" width="12"></iconify-icon>
+            Back to Profile
+        </a>
+        <button onclick="exportVault({{ subject.id }})" class="btn-primary" style="font-size: 12px; padding: 8px 20px;">
+            <iconify-icon icon="mdi:export-variant" width="14"></iconify-icon>
+            Export Vault
+        </button>
+    </div>
+</section>
+
+<!-- ═══════════ NOTES READER ═══════════ -->
+{% if notes %}
+    <div class="notes-container">
+        <!-- Sidebar Navigation -->
+        <aside class="notes-sidebar">
+            {% for note in notes %}
+                <button class="note-sidebar-item {% if loop.first %}active{% endif %}" data-note-id="{{ note.id }}">
+                    <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ note.title }}</span>
+                    {% if note.entity_name %}
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--dim); display: block; margin-top: 2px;">{{ note.entity_name }}</span>
+                    {% endif %}
+                </button>
+            {% endfor %}
+        </aside>
+
+        <!-- Note Content Panels -->
+        <div class="glow-card" style="padding: 32px;">
+            {% for note in notes %}
+                <div class="note-body-content {% if loop.first %}active{% endif %}" id="note-{{ note.id }}">
+                    <!-- Note Header -->
+                    <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid var(--signal);">
+                        <h2 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 26px; color: var(--signal); margin-bottom: 6px;">
+                            {{ note.title }}
+                        </h2>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                            {% if note.created_at is defined and note.created_at %}
+                                <span>
+                                    <iconify-icon icon="mdi:clock-outline" width="10" style="vertical-align: middle; margin-right: 2px;"></iconify-icon>
+                                    {{ note.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </span>
+                            {% endif %}
+                            {% if note.entity_name %}
+                                <span>
+                                    <iconify-icon icon="mdi:tag" width="10" style="vertical-align: middle; margin-right: 2px;"></iconify-icon>
+                                    <span class="entity-badge {{ note.entity_type if note.entity_type else 'person' }}">{{ note.entity_name }}</span>
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Note Body (synthesized content — Plus Jakarta Sans) -->
+                    <div class="markdown-body" style="font-weight: 300;">
+                        {{ note.content_md | safe }}
+                    </div>
+
+                    <!-- Source Citations -->
+                    <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid rgba(255, 171, 0, 0.08);">
+                        <details style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,171,0,0.08); border-radius: 6px; padding: 14px;">
+                            <summary style="font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; color: var(--bone); outline: none; display: flex; align-items: center; gap: 6px;">
+                                <iconify-icon icon="mdi:link-variant" width="14" style="color: var(--signal);"></iconify-icon>
+                                Source Citations
+                                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 8px;">({{ note.source_doc_ids|length }} documents)</span>
+                            </summary>
+                            <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px;">
+                                {% for doc_id in note.source_doc_ids %}
+                                    <span class="source-chip">
+                                        <iconify-icon icon="mdi:file-document-outline" width="10"></iconify-icon>
+                                        DOC#{{ doc_id }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            <p style="margin-top: 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: var(--dim); line-height: 1.5;">
+                                These source documents were combined through clustering and synthesis to generate the above intelligence note.
+                            </p>
+                        </details>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% else %}
+    <div class="glow-card" style="text-align: center; padding: 60px 40px;">
+        <iconify-icon icon="mdi:notebook-outline" width="40" style="color: var(--dim); margin-bottom: 12px;"></iconify-icon>
+        <p style="color: var(--bone); font-size: 16px; margin-bottom: 6px;">No notes synthesized</p>
+        <p style="font-family: 'Plus Jakarta Sans', sans-serif; color: var(--dim); font-size: 13px;">Complete the synthesis stage in the pipeline first to generate intelligence notes.</p>
+    </div>
+{% endif %}
+
+{% endblock %}
