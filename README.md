@@ -21,10 +21,10 @@ forming itself from whatever got scraped.
             └───────────────────────┘                   │
                         │                               │
               ┌─────────▼──────────┐          ┌─────────▼──────┐
-              │  PostgreSQL        │          │  Obsidian Vault │
-              │  + pgvector        │          │  brain/         │
-              │  11 tables         │          │  People/        │
-              │  VECTOR(384)       │          │  Works/         │
+              │  MongoDB           │          │  Obsidian Vault │
+              │  11 collections    │          │  brain/         │
+              │                    │          │  People/        │
+              │                    │          │  Works/         │
               └────────────────────┘          │  Events/        │
                                               │  Home.md        │
                                               └────────────────┘
@@ -80,7 +80,7 @@ view to see the synthetic brain.
 ## Project Structure
 
 ```
-synthetic-brain/
+CelebMind_CREATOR/
 ├── config/
 │   └── sources.yaml              # per-source profiles
 ├── src/
@@ -91,7 +91,7 @@ synthetic-brain/
 │   │   ├── imdb_spider.py        # Fetcher-based
 │   │   └── social_spider.py      # StealthyFetcher (skeleton)
 │   ├── storage/
-│   │   └── db.py                 # PostgreSQL + pgvector
+│   │   └── db.py                 # MongoDB driver
 │   ├── pipeline/
 │   │   ├── chunking.py           # recursive text splitter
 │   │   ├── embeddings.py         # SentenceTransformer
@@ -108,7 +108,6 @@ synthetic-brain/
 │   │   └── templates/            # Jinja2 HTML
 │   └── cli.py                    # python -m src.cli "Name"
 ├── docker-compose.yml
-├── schema.sql
 ├── requirements.txt
 ├── .env.example
 └── pyproject.toml
@@ -147,7 +146,7 @@ Every note has YAML frontmatter (`entity_type`, `sources`, `confidence`,
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://synthetic_brain:changeme@localhost:5432/synthetic_brain` | PostgreSQL connection |
+| `DATABASE_URL` | `mongodb://root:changeme@localhost:27017/synthetic_brain?authSource=admin` | MongoDB connection URI |
 | `OPENROUTER_API_KEY` | — | Required for LLM synthesis |
 | `VAULT_PATH` | `./output/vault` | Obsidian vault output directory |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer model |
