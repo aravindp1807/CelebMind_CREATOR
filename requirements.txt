@@ -11,3 +11,5 @@ rich
 beautifulsoup4
 PyPDF2
 gunicorn>=21.2.0
+umap-learn
+numpy
